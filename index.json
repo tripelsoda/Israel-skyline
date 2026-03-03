@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Israel Skyline Live</title>
+  <meta name="color-scheme" content="dark light" />
+  <style>
+    :root{
+      --bg: #0b0f14;
+      --panel: rgba(255,255,255,.06);
+      --panel2: rgba(255,255,255,.08);
+      --border: rgba(255,255,255,.10);
+      --text: #e8eef6;
+      --muted: rgba(232,238,246,.72);
+      --shadow: 0 12px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+      --gap: 14px;
+      --accent: #57d3ff;
+      --accent2: #7c5cff;
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:
+        radial-gradient(1200px 800px at 15% -10%, rgba(124,92,255,.20), transparent 60%),
+        radial-gradient(1200px 800px at 85% 0%, rgba(87,211,255,.14), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .wrap{ max-width: 1200px; margin: 0 auto; padding: 18px 14px 28px; }
+
+    header{
+      display:flex; gap: 12px; align-items:center; justify-content: space-between;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      position: sticky; top: 10px; z-index: 20;
+    }
+
+    .brand{ display:flex; flex-direction: column; gap: 4px; }
+    .brand .t{ font-size: 16px; font-weight: 800; letter-spacing: .2px; }
+    .brand .s{ font-size: 12px; color: var(--muted); }
+
+    .controls{ display:flex; gap: 10px; align-items:center; flex-wrap: wrap; justify-content: flex-end; }
+    .pill{
+      display:flex; align-items:center; gap: 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.18);
+      border-radius: 999px;
+      color: var(--text);
+    }
+
+    input[type="search"]{
+      appearance: none;
+      width: min(320px, 72vw);
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .btn{
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+      user-select: none;
+      display:flex; align-items:center; gap: 8px;
+      font-size: 13px;
+    }
+    .btn:hover{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.18); }
+    .btn:active{ transform: translateY(1px); }
+
+    .grid{
+      margin-top: 16px;
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: var(--gap);
+    }
+
+    .card{
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.04));
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+      display:flex; flex-direction: column;
+      min-height: 260px;
+    }
+
+    .meta{
+      padding: 12px 12px 10px;
+      display:flex; align-items:flex-start; justify-content: space-between; gap: 10px;
+    }
+    .meta .left{ display:flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .name{ font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub{ color: var(--muted); font-size: 12px; display:flex; gap: 10px; flex-wrap: wrap; }
+
+    .tags{ display:flex; gap: 6px; flex-wrap: wrap; }
+    .tag{
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.16);
+      color: rgba(232,238,246,.82);
+    }
+
+    .frame{
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 0;
+      display:block;
+      background: rgba(0,0,0,.35);
+    }
+
+    .actions{
+      padding: 10px 12px 12px;
+      display:flex; gap: 10px; justify-content: space-between; align-items:center; flex-wrap: wrap;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    .actions .left{ display:flex; gap: 10px; flex-wrap: wrap; align-items:center; }
+    .hint{ color: var(--muted); font-size: 12px; }
+
+    .small{
+      padding: 8px 10px;
+      font-size: 12px;
+      border-radius: 999px;
+    }
+    .small.primary{
+      border-color: rgba(87,211,255,.35);
+      background: linear-gradient(90deg, rgba(87,211,255,.16), rgba(124,92,255,.12));
+    }
+
+    .empty{
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: var(--radius);
+      border: 1px dashed rgba(255,255,255,.18);
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 520px){
+      header{ position: static; }
+      .controls{ justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="t" id="pageTitle">Israel Skyline Live</div>
+        <div class="s" id="pageSubtitle">Loading…</div>
+      </div>
+
+      <div class="controls">
+        <div class="pill" title="Filter by name, city or tag">
+          🔎 <input id="search" type="search" placeholder="Search (city, name, tag)..." />
+        </div>
+
+        <button class="btn" id="toggleAutoplay" type="button" title="Toggle autoplay for embeds">
+          ▶️ Autoplay: <span id="autoplayState">On</span>
+        </button>
+
+        <button class="btn" id="refresh" type="button" title="Reload JSON and re-render">
+          🔄 Refresh
+        </button>
+      </div>
+    </header>
+
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty" style="display:none;">No streams match your search.</div>
+  </div>
+
+  <script>
+    const JSON_URL = "./lives.json";
+    let config = null;
+    let autoplayEnabled = true;
+
+    const el = {
+      title: document.getElementById("pageTitle"),
+      subtitle: document.getElementById("pageSubtitle"),
+      grid: document.getElementById("grid"),
+      empty: document.getElementById("empty"),
+      search: document.getElementById("search"),
+      refresh: document.getElementById("refresh"),
+      toggleAutoplay: document.getElementById("toggleAutoplay"),
+      autoplayState: document.getElementById("autoplayState"),
+    };
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+    }
+
+    function buildEmbedUrl(youtubeId, {autoplay, mute, qualityHint}){
+      const params = new URLSearchParams({
+        autoplay: autoplay ? "1" : "0",
+        mute: mute ? "1" : "0",
+        playsinline: "1",
+        rel: "0",
+        modestbranding: "1"
+      });
+      if (qualityHint) params.set("vq", qualityHint);
+      return `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?${params.toString()}`;
+    }
+
+    function matches(card, q){
+      if (!q) return true;
+      const hay = [
+        card.name, card.city, card.id,
+        ...(card.tags || [])
+      ].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(q);
+    }
+
+    function render(){
+      const q = el.search.value.trim().toLowerCase();
+      const cards = (config?.cards || [])
+        .filter(c => c && c.enabled !== false)
+        .filter(c => matches(c, q));
+
+      el.grid.innerHTML = "";
+
+      if (!cards.length){
+        el.empty.style.display = "block";
+        return;
+      }
+      el.empty.style.display = "none";
+
+      const defaults = {
+        autoplay: autoplayEnabled && !!config?.defaultAutoplay,
+        mute: !!config?.defaultMute,
+        qualityHint: config?.defaultQualityHint || ""
+      };
+
+      for (const card of cards){
+        const tags = Array.isArray(card.tags) ? card.tags : [];
+        const url = buildEmbedUrl(card.youtubeId, defaults);
+        const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(card.youtubeId)}`;
+
+        const node = document.createElement("div");
+        node.className = "card";
+        node.innerHTML = `
+          <div class="meta">
+            <div class="left">
+              <div class="name">${escapeHtml(card.name || card.id || "Live")}</div>
+              <div class="sub">
+                <span>📍 ${escapeHtml(card.city || "Israel")}</span>
+                <span>•</span>
+                <span class="hint">YouTube live (has normal delay)</span>
+              </div>
+              <div class="tags">
+                ${tags.slice(0, 6).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
+              </div>
+            </div>
+          </div>
+
+          <iframe class="frame"
+            src="${url}"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            loading="lazy"
+            allowfullscreen></iframe>
+
+          <div class="actions">
+            <div class="left">
+              <a class="btn small primary" href="${watchUrl}" target="_blank" rel="noreferrer">▶️ Open on YouTube</a>
+              <button class="btn small" type="button" data-copy="${escapeHtml(watchUrl)}">🔗 Copy link</button>
+            </div>
+            <div class="hint">${escapeHtml(card.id || "")}</div>
+          </div>
+        `;
+        node.querySelector('[data-copy]')?.addEventListener("click", async (e) => {
+          const link = e.currentTarget.getAttribute("data-copy");
+          try{
+            await navigator.clipboard.writeText(link);
+            e.currentTarget.textContent = "✅ Copied";
+            setTimeout(() => e.currentTarget.textContent = "🔗 Copy link", 900);
+          }catch{
+            window.prompt("Copy this link:", link);
+          }
+        });
+
+        el.grid.appendChild(node);
+      }
+    }
+
+    async function loadConfig(){
+      el.subtitle.textContent = "Loading…";
+      const res = await fetch(JSON_URL, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load lives.json");
+      config = await res.json();
+
+      el.title.textContent = config.title || "Israel Skyline Live";
+      el.subtitle.textContent = config.subtitle || "Live webcams via YouTube";
+
+      autoplayEnabled = true;
+      el.autoplayState.textContent = autoplayEnabled ? "On" : "Off";
+      render();
+    }
+
+    el.search.addEventListener("input", () => render());
+
+    el.refresh.addEventListener("click", async () => {
+      try{
+        await loadConfig();
+      }catch(err){
+        el.subtitle.textContent = "Couldn’t load lives.json";
+        console.error(err);
+      }
+    });
+
+    el.toggleAutoplay.addEventListener("click", () => {
+      autoplayEnabled = !autoplayEnabled;
+      el.autoplayState.textContent = autoplayEnabled ? "On" : "Off";
+      render();
+    });
+
+    loadConfig().catch(err => {
+      el.subtitle.textContent = "Couldn’t load lives.json";
+      console.error(err);
+      el.empty.style.display = "block";
+      el.empty.textContent = "Failed to load configuration. Make sure lives.json exists in the repo root.";
+    });
+  </script>
+</body>
+</html>
