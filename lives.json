@@ -1,0 +1,33 @@
+{
+  "title": "🇮🇱 Israel Skyline Live",
+  "subtitle": "Live webcams via YouTube",
+  "defaultAutoplay": true,
+  "defaultMute": true,
+  "defaultQualityHint": "hd1080",
+  "cards": [
+    {
+      "id": "tel-aviv",
+      "name": "Tel Aviv Skyline",
+      "city": "Tel Aviv",
+      "youtubeId": "eerhMyVGAHw",
+      "tags": ["skyline", "night", "tel aviv"],
+      "enabled": true
+    },
+    {
+      "id": "jerusalem",
+      "name": "Jerusalem View",
+      "city": "Jerusalem",
+      "youtubeId": "fIurYTprwzg",
+      "tags": ["old city", "jerusalem"],
+      "enabled": true
+    },
+    {
+      "id": "General",
+      "name": "All of israel",
+      "city": "Israel",
+      "youtubeId": "5FhhFwJJ7pU",
+      "tags": ["general", "israel"],
+      "enabled": true
+    }
+  ]
+}
