@@ -188,157 +188,131 @@
     <div id="empty" class="empty" style="display:none;">No streams match your search.</div>
   </div>
 
-  <script>
-    const JSON_URL = "./lives.json";
-    let config = null;
-    let autoplayEnabled = true;
+<script>
+  const CONFIG_URL = "./lives.json";
+  let cfg;
 
-    const el = {
-      title: document.getElementById("pageTitle"),
-      subtitle: document.getElementById("pageSubtitle"),
-      grid: document.getElementById("grid"),
-      empty: document.getElementById("empty"),
-      search: document.getElementById("search"),
-      refresh: document.getElementById("refresh"),
-      toggleAutoplay: document.getElementById("toggleAutoplay"),
-      autoplayState: document.getElementById("autoplayState"),
-    };
+  async function fetchConfig() {
+    const r = await fetch(CONFIG_URL, { cache: "no-store" });
+    cfg = await r.json();
+  }
 
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, c => ({
-        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-      }[c]));
-    }
+  function ytEmbedUrl(youtubeId, autoplay, mute) {
+    const p = new URLSearchParams({
+      autoplay: autoplay ? "1" : "0",
+      mute: mute ? "1" : "0",
+      playsinline: "1",
+      rel: "0",
+      modestbranding: "1"
+    });
+    return `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?${p.toString()}`;
+  }
 
-    function buildEmbedUrl(youtubeId, {autoplay, mute, qualityHint}){
-      const params = new URLSearchParams({
-        autoplay: autoplay ? "1" : "0",
-        mute: mute ? "1" : "0",
-        playsinline: "1",
-        rel: "0",
-        modestbranding: "1"
-      });
-      if (qualityHint) params.set("vq", qualityHint);
-      return `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?${params.toString()}`;
-    }
+  async function resolveDynamic(card) {
+    const base = cfg.apiBase.replace(/\/$/, "");
+    const include = (card.include || []).join(",");
+    const exclude = (card.exclude || []).join(",");
 
-    function matches(card, q){
-      if (!q) return true;
-      const hay = [
-        card.name, card.city, card.id,
-        ...(card.tags || [])
-      ].filter(Boolean).join(" ").toLowerCase();
-      return hay.includes(q);
-    }
+    const u = new URL(base + "/resolve");
+    u.searchParams.set("channelId", card.channelId);
+    if (include) u.searchParams.set("include", include);
+    if (exclude) u.searchParams.set("exclude", exclude);
 
-    function render(){
-      const q = el.search.value.trim().toLowerCase();
-      const cards = (config?.cards || [])
-        .filter(c => c && c.enabled !== false)
-        .filter(c => matches(c, q));
+    const r = await fetch(u.toString(), { cache: "no-store" });
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    return data.videoId;
+  }
 
-      el.grid.innerHTML = "";
+  async function buildCards() {
+    const autoplay = cfg.defaults?.autoplay ?? true;
+    const mute = cfg.defaults?.mute ?? true;
 
-      if (!cards.length){
-        el.empty.style.display = "block";
-        return;
+    const staticCards = (cfg.staticCards || []).filter(c => c.enabled !== false);
+
+    const dynamicRaw = (cfg.dynamicCards || []).filter(c => c.enabled !== false);
+    const dynamicCards = await Promise.all(dynamicRaw.map(async c => {
+      try {
+        const videoId = await resolveDynamic(c);
+        return { ...c, youtubeId: videoId, _dynamicOk: true };
+      } catch (e) {
+        return { ...c, youtubeId: null, _dynamicOk: false, _error: String(e) };
       }
-      el.empty.style.display = "none";
+    }));
 
-      const defaults = {
-        autoplay: autoplayEnabled && !!config?.defaultAutoplay,
-        mute: !!config?.defaultMute,
-        qualityHint: config?.defaultQualityHint || ""
-      };
+    return { autoplay, mute, cards: [...dynamicCards, ...staticCards] };
+  }
 
-      for (const card of cards){
-        const tags = Array.isArray(card.tags) ? card.tags : [];
-        const url = buildEmbedUrl(card.youtubeId, defaults);
-        const watchUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(card.youtubeId)}`;
+  function renderCards(cards, autoplay, mute) {
+    const grid = document.getElementById("grid");
+    const empty = document.getElementById("empty");
+    grid.innerHTML = "";
 
-        const node = document.createElement("div");
-        node.className = "card";
-        node.innerHTML = `
-          <div class="meta">
-            <div class="left">
-              <div class="name">${escapeHtml(card.name || card.id || "Live")}</div>
-              <div class="sub">
-                <span>📍 ${escapeHtml(card.city || "Israel")}</span>
-                <span>•</span>
-                <span class="hint">YouTube live (has normal delay)</span>
-              </div>
-              <div class="tags">
-                ${tags.slice(0, 6).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}
-              </div>
+    const visible = cards.filter(c => c.enabled !== false);
+    if (!visible.length) { empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    for (const c of visible) {
+      const node = document.createElement("div");
+      node.className = "card";
+
+      const tags = (c.tags || []).slice(0, 6).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+
+      const body = c.youtubeId
+        ? `<iframe class="frame" src="${ytEmbedUrl(c.youtubeId, autoplay, mute)}"
+             allow="autoplay; encrypted-media; picture-in-picture" loading="lazy" allowfullscreen></iframe>`
+        : `<div style="padding:14px; color: rgba(232,238,246,.72);">
+             Couldn’t resolve live right now.<br/>
+             <span style="font-size:12px; opacity:.8">${escapeHtml(c._error || "")}</span>
+           </div>`;
+
+      const watchUrl = c.youtubeId ? `https://www.youtube.com/watch?v=${encodeURIComponent(c.youtubeId)}` : "#";
+
+      node.innerHTML = `
+        <div class="meta">
+          <div class="left">
+            <div class="name">${escapeHtml(c.name || c.id || "Live")}</div>
+            <div class="sub">
+              <span>📍 ${escapeHtml(c.city || "Israel")}</span>
+              <span>•</span>
+              <span class="hint">${c._dynamicOk === false ? "Auto live (not found)" : (c.channelId ? "Auto live" : "Static")}</span>
             </div>
+            <div class="tags">${tags}</div>
           </div>
-
-          <iframe class="frame"
-            src="${url}"
-            allow="autoplay; encrypted-media; picture-in-picture"
-            loading="lazy"
-            allowfullscreen></iframe>
-
-          <div class="actions">
-            <div class="left">
-              <a class="btn small primary" href="${watchUrl}" target="_blank" rel="noreferrer">▶️ Open on YouTube</a>
-              <button class="btn small" type="button" data-copy="${escapeHtml(watchUrl)}">🔗 Copy link</button>
-            </div>
-            <div class="hint">${escapeHtml(card.id || "")}</div>
+        </div>
+        ${body}
+        <div class="actions">
+          <div class="left">
+            <a class="btn small primary" href="${watchUrl}" target="_blank" rel="noreferrer" ${c.youtubeId ? "" : "aria-disabled=true"}>▶️ Open on YouTube</a>
           </div>
-        `;
-        node.querySelector('[data-copy]')?.addEventListener("click", async (e) => {
-          const link = e.currentTarget.getAttribute("data-copy");
-          try{
-            await navigator.clipboard.writeText(link);
-            e.currentTarget.textContent = "✅ Copied";
-            setTimeout(() => e.currentTarget.textContent = "🔗 Copy link", 900);
-          }catch{
-            window.prompt("Copy this link:", link);
-          }
-        });
-
-        el.grid.appendChild(node);
-      }
+          <div class="hint">${escapeHtml(c.id || "")}</div>
+        </div>
+      `;
+      grid.appendChild(node);
     }
+  }
 
-    async function loadConfig(){
-      el.subtitle.textContent = "Loading…";
-      const res = await fetch(JSON_URL, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to load lives.json");
-      config = await res.json();
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
 
-      el.title.textContent = config.title || "Israel Skyline Live";
-      el.subtitle.textContent = config.subtitle || "Live webcams via YouTube";
+  async function main(){
+    await fetchConfig();
+    document.getElementById("pageTitle").textContent = cfg.title || "Israel Skyline Live";
+    document.getElementById("pageSubtitle").textContent = cfg.subtitle || "";
 
-      autoplayEnabled = true;
-      el.autoplayState.textContent = autoplayEnabled ? "On" : "Off";
-      render();
-    }
+    const built = await buildCards();
+    renderCards(built.cards, built.autoplay, built.mute);
+  }
 
-    el.search.addEventListener("input", () => render());
-
-    el.refresh.addEventListener("click", async () => {
-      try{
-        await loadConfig();
-      }catch(err){
-        el.subtitle.textContent = "Couldn’t load lives.json";
-        console.error(err);
-      }
-    });
-
-    el.toggleAutoplay.addEventListener("click", () => {
-      autoplayEnabled = !autoplayEnabled;
-      el.autoplayState.textContent = autoplayEnabled ? "On" : "Off";
-      render();
-    });
-
-    loadConfig().catch(err => {
-      el.subtitle.textContent = "Couldn’t load lives.json";
-      console.error(err);
-      el.empty.style.display = "block";
-      el.empty.textContent = "Failed to load configuration. Make sure lives.json exists in the repo root.";
-    });
-  </script>
+  main().catch(err => {
+    console.error(err);
+    const empty = document.getElementById("empty");
+    empty.style.display = "block";
+    empty.textContent = "Failed to load config or resolve lives. Check apiBase and Worker.";
+  });
+</script>
 </body>
 </html>
