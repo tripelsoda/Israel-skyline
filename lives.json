@@ -2,15 +2,18 @@
   "title": "🇮🇱 Israel Skyline Live",
   "subtitle": "Static + auto-updating channel lives",
   "apiBase": "https://yt-live-resolver.benbenroz11.workers.dev",
-  "defaults": { "autoplay": true, "mute": true },
+  "defaults": {
+    "autoplay": true,
+    "mute": true
+  },
 
   "staticCards": [
     {
-      "id": "General",
+      "id": "general",
       "name": "General Area",
       "city": "Israel",
       "youtubeId": "4E-iFtUM2kk",
-      "tags": ["static", "General"],
+      "tags": ["static", "general"],
       "enabled": true
     }
   ],
@@ -21,6 +24,7 @@
       "name": "Tel Aviv Skyline (auto)",
       "city": "Tel Aviv",
       "channelId": "UC52X5wxOL_s5yw0dQk7NtgA",
+      "fallbackVideoId": "4E-iFtUM2kk",
       "tags": ["auto", "tel aviv"],
       "enabled": true
     },
@@ -29,6 +33,7 @@
       "name": "Jerusalem View (auto)",
       "city": "Jerusalem",
       "channelId": "UC52X5wxOL_s5yw0dQk7NtgA",
+      "fallbackVideoId": "4E-iFtUM2kk",
       "tags": ["auto", "jerusalem"],
       "enabled": true
     }
