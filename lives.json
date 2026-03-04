@@ -21,7 +21,6 @@
       "name": "Tel Aviv Skyline (auto)",
       "city": "Tel Aviv",
       "channelId": "UC52X5wxOL_s5yw0dQk7NtgA",
-      "cityParam": "tel aviv",
       "tags": ["auto", "tel aviv"],
       "enabled": true
     },
@@ -30,7 +29,6 @@
       "name": "Jerusalem View (auto)",
       "city": "Jerusalem",
       "channelId": "UC52X5wxOL_s5yw0dQk7NtgA",
-      "cityParam": "jerusalem",
       "tags": ["auto", "jerusalem"],
       "enabled": true
     }
