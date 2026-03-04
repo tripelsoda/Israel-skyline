@@ -240,6 +240,7 @@
 
     const includeList = normalizeListOrString(card.include);
     const excludeList = normalizeListOrString(card.exclude);
+    console.log("Worker URL:", u.toString());
 
     const u = new URL(base + "/resolve");
     u.searchParams.set("channelId", card.channelId);
