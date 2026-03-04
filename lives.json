@@ -1,7 +1,7 @@
 {
   "title": "🇮🇱 Israel Skyline Live",
   "subtitle": "Static + auto-updating channel lives",
-  "apiBase": "https://YOUR-WORKER.your-subdomain.workers.dev",
+  "apiBase": "https://yt-live-resolver.benbenroz11.workers.dev",
   "defaults": { "autoplay": true, "mute": true },
 
   "staticCards": [
