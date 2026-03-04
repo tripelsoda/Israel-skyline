@@ -192,9 +192,7 @@
 
 <script>
   const CONFIG_URL = "./lives.json";
-
   let cfg = null;
-
   let allCards = [];
   let autoplayEnabled = true;
   let muteEnabled = true;
@@ -205,20 +203,6 @@
     return String(s).replace(/[&<>"']/g, c => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
     }[c]));
-  }
-
-  function normalizeListOrString(v){
-    if (!v) return [];
-    if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
-    if (typeof v === "string") return v.split(",").map(x => x.trim()).filter(Boolean);
-    return [];
-  }
-
-  async function fetchConfig() {
-    const r = await fetch(CONFIG_URL, { cache: "no-store" });
-    if (!r.ok) throw new Error(`Failed to load lives.json (${r.status})`);
-    cfg = await r.json();
-    if (!cfg) throw new Error("Invalid lives.json");
   }
 
   function ytEmbedUrl(youtubeId, autoplay, mute) {
@@ -232,51 +216,52 @@
     return `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?${p.toString()}`;
   }
 
-  // Supports BOTH:
-  // - New worker mode: cityParam -> GET /?channelId=...&city=tel%20aviv
-  // - Old mode (optional): include/exclude -> GET /?channelId=...&include=...&exclude=...
+  async function fetchConfig() {
+    const r = await fetch(CONFIG_URL, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Failed to load lives.json (${r.status})`);
+    return await r.json();
+  }
+
+  // IMPORTANT: worker endpoint is "/?channelId=...&city=..."
   async function resolveDynamic(card) {
     const base = String(cfg.apiBase || "").replace(/\/$/, "");
-    if (!base) throw new Error("apiBase is missing in lives.json");
-    if (!card.channelId) throw new Error("dynamicCard missing channelId");
+    if (!base) throw new Error("apiBase missing in lives.json");
+
+    const city = (card.city || "").toLowerCase();
+    if (!card.channelId) throw new Error("dynamic card missing channelId");
+    if (!city) throw new Error("dynamic card missing city");
 
     const u = new URL(base + "/");
     u.searchParams.set("channelId", card.channelId);
+    u.searchParams.set("city", city);
 
-    // New worker parameter (prefix matching LIVE: <city>)
-    if (card.cityParam) {
-      u.searchParams.set("city", String(card.cityParam));
-    } else {
-      // Backward compatible include/exclude
-      const includeList = normalizeListOrString(card.include);
-      const excludeList = normalizeListOrString(card.exclude);
-      if (includeList.length) u.searchParams.set("include", includeList.join(","));
-      if (excludeList.length) u.searchParams.set("exclude", excludeList.join(","));
-    }
+    // optional: always provide fallback so Worker almost never 404s
+    const fallback = cfg.staticCards?.[0]?.youtubeId;
+    if (fallback) u.searchParams.set("fallbackVideoId", fallback);
+
+    console.log("Worker URL:", u.toString());
 
     const r = await fetch(u.toString(), { cache: "no-store" });
     const txt = await r.text();
     if (!r.ok) throw new Error(txt || `Worker error (${r.status})`);
 
-    let data;
-    try { data = JSON.parse(txt); }
-    catch { throw new Error(txt); }
-
+    const data = JSON.parse(txt);
     if (!data.videoId) throw new Error("Worker response missing videoId");
-    return data.videoId;
+
+    return { videoId: data.videoId, meta: data };
   }
 
   async function buildCards() {
-    const defaults = cfg.defaults || {};
-    muteEnabled = (defaults.mute ?? true);
+    autoplayEnabled = (cfg.defaults?.autoplay ?? true);
+    muteEnabled = (cfg.defaults?.mute ?? true);
 
     const staticCards = (cfg.staticCards || []).filter(c => c && c.enabled !== false);
 
     const dynamicRaw = (cfg.dynamicCards || []).filter(c => c && c.enabled !== false);
     const dynamicCards = await Promise.all(dynamicRaw.map(async c => {
       try {
-        const videoId = await resolveDynamic(c);
-        return { ...c, youtubeId: videoId, _dynamicOk: true };
+        const res = await resolveDynamic(c);
+        return { ...c, youtubeId: res.videoId, _dynamicOk: true, _meta: res.meta };
       } catch (e) {
         return { ...c, youtubeId: null, _dynamicOk: false, _error: String(e) };
       }
@@ -288,10 +273,7 @@
   function cardMatchesQuery(card, q){
     if (!q) return true;
     const hay = [
-      card.name,
-      card.city,
-      card.id,
-      ...(card.tags || [])
+      card.name, card.city, card.id, ...(card.tags || [])
     ].filter(Boolean).join(" ").toLowerCase();
     return hay.includes(q);
   }
@@ -317,7 +299,8 @@
       const node = document.createElement("div");
       node.className = "card";
 
-      const tags = (c.tags || []).slice(0, 6).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
+      const tags = (c.tags || []).slice(0, 6)
+        .map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
 
       const body = c.youtubeId
         ? `<iframe class="frame"
@@ -339,7 +322,7 @@
             <div class="sub">
               <span>📍 ${escapeHtml(c.city || "Israel")}</span>
               <span>•</span>
-              <span class="hint">${c._dynamicOk === false ? "Auto live (not found)" : (c.channelId ? "Auto live" : "Static")}</span>
+              <span class="hint">${c.channelId ? "Auto live" : "Static"}</span>
             </div>
             <div class="tags">${tags}</div>
           </div>
@@ -347,12 +330,11 @@
         ${body}
         <div class="actions">
           <div class="left">
-            <a class="btn small primary" href="${watchUrl}" target="_blank" rel="noreferrer" ${c.youtubeId ? "" : "aria-disabled=true"}>▶️ Open on YouTube</a>
+            <a class="btn small primary" href="${watchUrl}" target="_blank" rel="noreferrer">▶️ Open on YouTube</a>
           </div>
           <div class="hint">${escapeHtml(c.id || "")}</div>
         </div>
       `;
-
       grid.appendChild(node);
     }
   }
@@ -360,45 +342,35 @@
   async function loadAndRender() {
     $("pageSubtitle").textContent = "Loading…";
 
-    await fetchConfig();
+    cfg = await fetchConfig();
 
     $("pageTitle").textContent = cfg.title || "Israel Skyline Live";
     $("pageSubtitle").textContent = cfg.subtitle || "";
 
+    $("autoplayState").textContent = (cfg.defaults?.autoplay ?? true) ? "On" : "Off";
     autoplayEnabled = (cfg.defaults?.autoplay ?? true);
-    $("autoplayState").textContent = autoplayEnabled ? "On" : "Off";
 
     allCards = await buildCards();
     renderCards(allCards);
   }
 
-  // Listeners
+  // listeners
   $("search").addEventListener("input", () => renderCards(allCards));
-
   $("toggleAutoplay").addEventListener("click", () => {
     autoplayEnabled = !autoplayEnabled;
     $("autoplayState").textContent = autoplayEnabled ? "On" : "Off";
     renderCards(allCards);
   });
+  $("refresh").addEventListener("click", () => loadAndRender().catch(showFatal));
 
-  $("refresh").addEventListener("click", async () => {
-    try {
-      await loadAndRender();
-    } catch (err) {
-      console.error(err);
-      $("pageSubtitle").textContent = "Error";
-      $("empty").style.display = "block";
-      $("empty").textContent = "Failed to load config or resolve lives.\nCheck lives.json apiBase and Worker.";
-    }
-  });
-
-  // Start
-  loadAndRender().catch(err => {
+  function showFatal(err){
     console.error(err);
     $("pageSubtitle").textContent = "Error";
     $("empty").style.display = "block";
-    $("empty").textContent = "Failed to load config or resolve lives.\nCheck lives.json apiBase and Worker.";
-  });
+    $("empty").textContent = "Page crashed. Open Console and copy the first red error line.";
+  }
+
+  loadAndRender().catch(showFatal);
 </script>
 </body>
 </html>
