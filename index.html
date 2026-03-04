@@ -84,11 +84,12 @@
     .btn:hover{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.18); }
     .btn:active{ transform: translateY(1px); }
 
+    /* Make cards bigger: increase min width */
     .grid{
       margin-top: 16px;
       display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: var(--gap);
+      grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+      gap: 18px;
     }
 
     .card{
@@ -158,6 +159,7 @@
     @media (max-width: 520px){
       header{ position: static; }
       .controls{ justify-content: flex-start; }
+      .grid{ grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -190,11 +192,35 @@
 
 <script>
   const CONFIG_URL = "./lives.json";
-  let cfg;
+
+  let cfg = null;
+
+  // State (fixed)
+  let allCards = [];
+  let autoplayEnabled = true;
+  let muteEnabled = true;
+  let lastError = "";
+
+  function $(id){ return document.getElementById(id); }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+
+  function normalizeListOrString(v){
+    if (!v) return [];
+    if (Array.isArray(v)) return v.map(x => String(x).trim()).filter(Boolean);
+    if (typeof v === "string") return v.split(",").map(x => x.trim()).filter(Boolean);
+    return [];
+  }
 
   async function fetchConfig() {
     const r = await fetch(CONFIG_URL, { cache: "no-store" });
+    if (!r.ok) throw new Error(`Failed to load lives.json (${r.status})`);
     cfg = await r.json();
+    if (!cfg) throw new Error("Invalid lives.json");
   }
 
   function ytEmbedUrl(youtubeId, autoplay, mute) {
@@ -208,38 +234,35 @@
     return `https://www.youtube.com/embed/${encodeURIComponent(youtubeId)}?${p.toString()}`;
   }
 
-async function resolveDynamic(card) {
-  const base = (cfg.apiBase || "").replace(/\/$/, "");
+  async function resolveDynamic(card) {
+    const base = String(cfg.apiBase || "").replace(/\/$/, "");
+    if (!base) throw new Error("apiBase is missing in lives.json");
 
-  const toCsv = (v) => {
-    if (!v) return "";
-    if (Array.isArray(v)) return v.join(",");
-    if (typeof v === "string") return v;
-    return "";
-  };
+    const includeList = normalizeListOrString(card.include);
+    const excludeList = normalizeListOrString(card.exclude);
 
-  const include = toCsv(card.include);
-  const exclude = toCsv(card.exclude);
+    const u = new URL(base + "/resolve");
+    u.searchParams.set("channelId", card.channelId);
 
-  const u = new URL(base + "/resolve");
-  u.searchParams.set("channelId", card.channelId);
-  if (include) u.searchParams.set("include", include);
-  if (exclude) u.searchParams.set("exclude", exclude);
+    if (includeList.length) u.searchParams.set("include", includeList.join(","));
+    if (excludeList.length) u.searchParams.set("exclude", excludeList.join(","));
 
-  const r = await fetch(u.toString(), { cache: "no-store" });
-  const txt = await r.text();
-  if (!r.ok) throw new Error(txt);
-  const data = JSON.parse(txt);
-  return data.videoId;
-}
+    const r = await fetch(u.toString(), { cache: "no-store" });
+    const txt = await r.text();
+    if (!r.ok) throw new Error(txt || `Worker error (${r.status})`);
+
+    const data = JSON.parse(txt);
+    if (!data.videoId) throw new Error("Worker response missing videoId");
+    return data.videoId;
+  }
 
   async function buildCards() {
-    const autoplay = cfg.defaults?.autoplay ?? true;
-    const mute = cfg.defaults?.mute ?? true;
+    const defaults = cfg.defaults || {};
+    muteEnabled = (defaults.mute ?? true);
 
-    const staticCards = (cfg.staticCards || []).filter(c => c.enabled !== false);
+    const staticCards = (cfg.staticCards || []).filter(c => c && c.enabled !== false);
 
-    const dynamicRaw = (cfg.dynamicCards || []).filter(c => c.enabled !== false);
+    const dynamicRaw = (cfg.dynamicCards || []).filter(c => c && c.enabled !== false);
     const dynamicCards = await Promise.all(dynamicRaw.map(async c => {
       try {
         const videoId = await resolveDynamic(c);
@@ -249,16 +272,33 @@ async function resolveDynamic(card) {
       }
     }));
 
-    return { autoplay, mute, cards: [...dynamicCards, ...staticCards] };
+    return [...dynamicCards, ...staticCards];
   }
 
-  function renderCards(cards, autoplay, mute) {
-    const grid = document.getElementById("grid");
-    const empty = document.getElementById("empty");
+  function cardMatchesQuery(card, q){
+    if (!q) return true;
+    const hay = [
+      card.name,
+      card.city,
+      card.id,
+      ...(card.tags || [])
+    ].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  }
+
+  function renderCards(cards) {
+    const grid = $("grid");
+    const empty = $("empty");
     grid.innerHTML = "";
 
-    const visible = cards.filter(c => c.enabled !== false);
-    if (!visible.length) { empty.style.display = "block"; return; }
+    const q = $("search").value.trim().toLowerCase();
+    const visible = cards.filter(c => c && c.enabled !== false).filter(c => cardMatchesQuery(c, q));
+
+    if (!visible.length) {
+      empty.style.display = "block";
+      empty.textContent = q ? "No streams match your search." : "No streams configured.";
+      return;
+    }
     empty.style.display = "none";
 
     for (const c of visible) {
@@ -268,8 +308,11 @@ async function resolveDynamic(card) {
       const tags = (c.tags || []).slice(0, 6).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("");
 
       const body = c.youtubeId
-        ? `<iframe class="frame" src="${ytEmbedUrl(c.youtubeId, autoplay, mute)}"
-             allow="autoplay; encrypted-media; picture-in-picture" loading="lazy" allowfullscreen></iframe>`
+        ? `<iframe class="frame"
+              src="${ytEmbedUrl(c.youtubeId, autoplayEnabled, muteEnabled)}"
+              allow="autoplay; encrypted-media; picture-in-picture"
+              loading="lazy"
+              allowfullscreen></iframe>`
         : `<div style="padding:14px; color: rgba(232,238,246,.72);">
              Couldn’t resolve live right now.<br/>
              <span style="font-size:12px; opacity:.8">${escapeHtml(c._error || "")}</span>
@@ -297,30 +340,53 @@ async function resolveDynamic(card) {
           <div class="hint">${escapeHtml(c.id || "")}</div>
         </div>
       `;
+
       grid.appendChild(node);
     }
   }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, c => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-    }[c]));
-  }
+  async function loadAndRender() {
+    $("pageSubtitle").textContent = "Loading…";
+    lastError = "";
 
-  async function main(){
     await fetchConfig();
-    document.getElementById("pageTitle").textContent = cfg.title || "Israel Skyline Live";
-    document.getElementById("pageSubtitle").textContent = cfg.subtitle || "";
 
-    const built = await buildCards();
-    renderCards(built.cards, built.autoplay, built.mute);
+    $("pageTitle").textContent = cfg.title || "Israel Skyline Live";
+    $("pageSubtitle").textContent = cfg.subtitle || "";
+
+    autoplayEnabled = (cfg.defaults?.autoplay ?? true);
+    $("autoplayState").textContent = autoplayEnabled ? "On" : "Off";
+
+    allCards = await buildCards();
+    renderCards(allCards);
   }
 
-  main().catch(err => {
+  // Listeners (fixed)
+  $("search").addEventListener("input", () => renderCards(allCards));
+
+  $("toggleAutoplay").addEventListener("click", () => {
+    autoplayEnabled = !autoplayEnabled;
+    $("autoplayState").textContent = autoplayEnabled ? "On" : "Off";
+    renderCards(allCards);
+  });
+
+  $("refresh").addEventListener("click", async () => {
+    try {
+      await loadAndRender();
+    } catch (err) {
+      console.error(err);
+      $("pageSubtitle").textContent = "Error";
+      $("empty").style.display = "block";
+      $("empty").textContent = "Failed to load config or resolve lives. Check lives.json apiBase and Worker.";
+    }
+  });
+
+  // Start
+  loadAndRender().catch(err => {
     console.error(err);
-    const empty = document.getElementById("empty");
-    empty.style.display = "block";
-    empty.textContent = "Failed to load config or resolve lives. Check apiBase and Worker.";
+    $("pageSubtitle").textContent = "Error";
+    $("empty").style.display = "block";
+    $("empty").textContent = "Failed to load config or resolve lives. Check lives.json apiBase and Worker.";
   });
 </script>
 </body>
