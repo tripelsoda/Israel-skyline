@@ -237,25 +237,28 @@
   async function resolveDynamic(card) {
     const base = String(cfg.apiBase || "").replace(/\/$/, "");
     if (!base) throw new Error("apiBase is missing in lives.json");
-
+  
     const includeList = normalizeListOrString(card.include);
     const excludeList = normalizeListOrString(card.exclude);
-    console.log("Worker URL:", u.toString());
-
+  
     const u = new URL(base + "/resolve");
     u.searchParams.set("channelId", card.channelId);
-
+  
     if (includeList.length) u.searchParams.set("include", includeList.join(","));
     if (excludeList.length) u.searchParams.set("exclude", excludeList.join(","));
-
+  
+    // debug AFTER u exists
+    console.log("Worker URL:", u.toString());
+  
     const r = await fetch(u.toString(), { cache: "no-store" });
     const txt = await r.text();
     if (!r.ok) throw new Error(txt || `Worker error (${r.status})`);
-
+  
     const data = JSON.parse(txt);
     if (!data.videoId) throw new Error("Worker response missing videoId");
+  
     return data.videoId;
-  }
+  } 
 
   async function buildCards() {
     const defaults = cfg.defaults || {};
