@@ -1,32 +1,39 @@
 {
   "title": "🇮🇱 Israel Skyline Live",
-  "subtitle": "Live webcams via YouTube",
-  "defaultAutoplay": true,
-  "defaultMute": true,
-  "defaultQualityHint": "hd1080",
-  "cards": [
+  "subtitle": "Static + auto-updating channel lives",
+  "apiBase": "https://YOUR-WORKER.your-subdomain.workers.dev",
+  "defaults": { "autoplay": true, "mute": true },
+
+  "staticCards": [
+    {
+      "id": "General",
+      "name": "General Area",
+      "city": "Israel",
+      "youtubeId": "4E-iFtUM2kk",
+      "tags": ["static","General"],
+      "enabled": true
+    }
+  ],
+
+  "dynamicCards": [
     {
       "id": "tel-aviv",
-      "name": "Tel Aviv Skyline",
+      "name": "Tel Aviv Skyline (auto)",
       "city": "Tel Aviv",
-      "youtubeId": "eerhMyVGAHw",
-      "tags": ["skyline", "night", "tel aviv"],
+      "channelId": "UC_CHANNEL_ID_HERE",
+      "include": ["tel aviv"],
+      "exclude": ["beirut"],
+      "tags": ["auto", "tel aviv"],
       "enabled": true
     },
     {
       "id": "jerusalem",
-      "name": "Jerusalem View",
+      "name": "Jerusalem View (auto)",
       "city": "Jerusalem",
-      "youtubeId": "fIurYTprwzg",
-      "tags": ["old city", "jerusalem"],
-      "enabled": true
-    },
-    {
-      "id": "General",
-      "name": "All of israel",
-      "city": "Israel",
-      "youtubeId": "4E-iFtUM2kk",
-      "tags": ["general", "israel"],
+      "channelId": "UC_CHANNEL_ID_HERE",
+      "include": ["jerusalem"],
+      "exclude": ["beirut"],
+      "tags": ["auto", "jerusalem"],
       "enabled": true
     }
   ]
