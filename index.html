@@ -241,7 +241,7 @@
     const includeList = normalizeListOrString(card.include);
     const excludeList = normalizeListOrString(card.exclude);
   
-    const u = new URL(base + "/resolve");
+    const u = new URL(base + "/");
     u.searchParams.set("channelId", card.channelId);
   
     if (includeList.length) u.searchParams.set("include", includeList.join(","));
